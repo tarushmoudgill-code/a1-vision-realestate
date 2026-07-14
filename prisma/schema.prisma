@@ -1,0 +1,247 @@
+// A1 Vision Real Estate — Premium Real Estate schema
+// PostgreSQL datasource (production-ready for Vercel/Neon/Supabase).
+// Status/type fields use String with validation at the API layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("ADMIN") // ADMIN | AGENT | PROPERTY_MANAGER | MARKETING
+  agentId      String?
+  avatar       String?
+  active       Boolean  @default(true)
+  twoFactorEnabled Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  auditLogs AuditLog[]
+  blogPosts BlogPost[]
+}
+
+model Agent {
+  id              String   @id @default(cuid())
+  name            String
+  title           String
+  bio             String
+  photo           String
+  email           String
+  phone           String
+  specialisations String   // comma-separated
+  suburbs         String   // comma-separated
+  activeListings  Int      @default(0)
+  soldCount       Int      @default(0)
+  totalSalesValue Float    @default(0)
+  yearsExperience Int      @default(0)
+  languages       String   @default("English")
+  rating          Float    @default(5)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  properties   Property[]
+  inspections  Inspection[]
+  leads        Lead[]
+}
+
+model Suburb {
+  id            String   @id @default(cuid())
+  name          String
+  state         String
+  postcode      String
+  description   String
+  medianPrice   Int
+  medianRent    Int
+  growthRate    Float    @default(0)
+  population    Int      @default(0)
+  demographics  String   // JSON string
+  amenities     String   // JSON string
+  lifestyle     String
+  image         String
+  featured      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  properties Property[]
+}
+
+model Property {
+  id            String   @id @default(cuid())
+  title         String
+  slug          String   @unique
+  description   String
+  address       String
+  suburbId      String
+  price         Int
+  priceDisplay  String
+  listingType   String   @default("SALE") // SALE | RENT | LEASED | SOLD | AUCTION | NEW | OFFMARKET | PROJECT
+  status        String   @default("ACTIVE") // ACTIVE | UNDER_OFFER | SOLD | LEASED | WITHDRAWN
+  propertyType  String   @default("House") // House | Apartment | Townhouse | Villa | Land | Acreage | Penthouse
+  bedrooms      Int      @default(3)
+  bathrooms     Int      @default(2)
+  carSpaces     Int      @default(1)
+  landSize      Int      @default(0)
+  buildingSize  Int      @default(0)
+  features      String   // comma-separated
+  images        String   // JSON array of {url, caption}
+  floorPlan     String?
+  virtualTourUrl String?
+  videoUrl      String?
+  agentId       String
+  featured      Boolean  @default(false)
+  views         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  suburb      Suburb      @relation(fields: [suburbId], references: [id])
+  agent       Agent       @relation(fields: [agentId], references: [id])
+  inspections Inspection[]
+  leads       Lead[]
+}
+
+model Inspection {
+  id            String   @id @default(cuid())
+  propertyId    String
+  agentId       String?
+  name          String
+  email         String
+  phone         String
+  preferredDate String
+  preferredTime String
+  message       String
+  status        String   @default("PENDING") // PENDING | CONFIRMED | COMPLETED | NO_SHOW | CANCELLED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id])
+  agent    Agent?   @relation(fields: [agentId], references: [id])
+}
+
+model Lead {
+  id              String   @id @default(cuid())
+  type            String   @default("ENQUIRY") // ENQUIRY | APPRAISAL | LIST_PROPERTY | GENERAL
+  name            String
+  email           String
+  phone           String
+  message         String
+  status          String   @default("NEW") // NEW | CONTACTED | QUALIFIED | ACTIVE | WON | LOST
+  source          String   @default("Website")
+  propertyId      String?
+  assignedAgentId String?
+  notes           String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  property Property? @relation(fields: [propertyId], references: [id])
+  agent    Agent?   @relation(fields: [assignedAgentId], references: [id])
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  name         String
+  email        String
+  phone        String?
+  role         String   @default("BUYER") // BUYER | SELLER | TENANT | LANDLORD | INVESTOR
+  preferences  String   @default("") // JSON
+  notes        String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Testimonial {
+  id          String   @id @default(cuid())
+  name        String
+  location    String
+  rating      Int      @default(5)
+  serviceType String   @default("Sale")
+  message     String
+  avatar      String?
+  status      String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt   DateTime @default(now())
+}
+
+model BlogPost {
+  id             String   @id @default(cuid())
+  title          String
+  slug           String   @unique
+  excerpt        String
+  content        String
+  category       String   @default("Insights")
+  tags           String   @default("")
+  authorId       String?
+  featuredImage  String
+  published      Boolean  @default(false)
+  publishedAt    DateTime @default(now())
+  metaTitle      String?
+  metaDescription String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  author User? @relation(fields: [authorId], references: [id])
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  category    String
+  tagline     String
+  description String
+  process     String   // JSON array
+  included    String   // JSON array
+  feeInfo     String
+  icon        String
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model ContactSubmission {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    String   @default("NEW") // NEW | READ | REPLIED
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+model SiteSettings {
+  id              String   @id @default("singleton")
+  businessName    String   @default("A1 Vision Real Estate")
+  tagline         String   @default("Premium Real Estate")
+  phone           String   @default("+61 3 9000 0000")
+  email           String   @default("hello@a1vision.com.au")
+  address         String   @default("Level 8, 120 Collins Street, Melbourne VIC 3000")
+  hours           String   @default("Mon–Fri 8:30am–6pm · Sat 9am–4pm")
+  heroTitle       String   @default("Find a place you'll love to call home")
+  heroSubtitle    String
+  heroImage       String
+  heroCtaText     String   @default("Browse Properties")
+  facebook        String   @default("#")
+  instagram       String   @default("#")
+  linkedin        String   @default("#")
+  youtube         String   @default("#")
+  maintenanceMode Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+}
